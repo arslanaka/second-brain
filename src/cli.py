@@ -16,8 +16,9 @@ def capture(text: str = typer.Argument(..., help="The raw thought to capture")):
     Capture a raw thought and structure it using the Adaptive AI Second-Brain.
     """
     try:
+        # Connect to Docker Qdrant if running, else defaults to localhost
         engine = StructureEngine()
-        with console.status("[bold green]Processing thought..."):
+        with console.status("[bold green]Processing and Storing thought..."):
             result = engine.process_thought(text)
         
         # Display results
@@ -27,23 +28,52 @@ def capture(text: str = typer.Argument(..., help="The raw thought to capture")):
         table.add_column("Category")
         table.add_column("Title")
         table.add_column("Urgency")
-        table.add_column("Next Step")
-        table.add_column("Clarity")
+        table.add_column("Importance")
+        table.add_column("Context")
+        table.add_column("Energy")
 
         for item in result.items:
+            context_str = ", ".join([c.value for c in item.context_tags])
             table.add_row(
                 item.category.value,
                 item.title,
                 item.urgency.value,
-                item.next_step,
-                str(item.clarity_score)
+                str(item.importance),
+                context_str,
+                item.energy_level.value
             )
         
         console.print(table)
+        rprint("[green]Thought stored in Vector DB.[/green]")
 
-        # Print detailed JSON
-        rprint("\n[bold dim]Raw JSON:[/bold dim]")
-        print(result.model_dump_json(indent=2))
+    except Exception as e:
+        console.print(f"[bold red]Error:[/bold red] {str(e)}")
+
+@app.command()
+def search(query: str = typer.Argument(..., help="Search query for semantic retrieval")):
+    """
+    Semantically search stored thoughts.
+    """
+    try:
+        engine = StructureEngine()
+        with console.status("[bold green]Searching..."):
+            results = engine.search_thoughts(query)
+        
+        rprint(f"\n[bold blue]Search Results for '{query}':[/bold blue]")
+        
+        table = Table(show_header=True, header_style="bold cyan")
+        table.add_column("Title")
+        table.add_column("Description")
+        table.add_column("Category")
+        
+        for res in results:
+            table.add_row(
+                res.get('title', 'N/A'),
+                res.get('description', 'N/A'),
+                res.get('category', 'N/A')
+            )
+        
+        console.print(table)
 
     except Exception as e:
         console.print(f"[bold red]Error:[/bold red] {str(e)}")
